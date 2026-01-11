@@ -36,11 +36,19 @@ await db.read();
 db.data ||= defaultData;
 await db.write();
 
-// GET all annotations
+// GET all annotations (optionally filtered by pointCloudId)
 app.get('/annotations', async (req, res) => {
   try {
     await db.read();
-    res.json(db.data.annotations);
+    let annotations = db.data.annotations;
+    
+    // Filter by pointCloudId if provided
+    const { pointCloudId } = req.query;
+    if (pointCloudId) {
+      annotations = annotations.filter(a => a.pointCloudId === pointCloudId);
+    }
+    
+    res.json(annotations);
   } catch (error) {
     console.error('Error fetching annotations:', error);
     res.status(500).json({ error: 'Failed to fetch annotations' });
@@ -66,6 +74,7 @@ app.post('/annotations', async (req, res) => {
 
     const annotation = {
       id: randomUUID(),
+      pointCloudId: req.body.pointCloudId || null,
       position: {
         x: position.x,
         y: position.y,

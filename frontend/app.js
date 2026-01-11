@@ -22,6 +22,11 @@ let btnGrid, btnAxes, btnViewTop, btnViewFront, btnViewLeft, btnFit;
 let gridHelper = null;
 let axesHelper = null;
 let byteCountDebounceTimer = null;
+let currentPointCloud = null;
+let currentPointCloudUrl = null; // Track current point cloud for annotation filtering
+
+// Load cloud modal elements
+let loadCloudModal, cloudUrlInput, btnLoadCloud, confirmLoadCloudBtn, cancelLoadCloudBtn, closeLoadModalX;
 
 /**
  * Initialize DOM references
@@ -48,6 +53,14 @@ function initDOMReferences() {
   btnViewFront = document.getElementById('btn-view-front');
   btnViewLeft = document.getElementById('btn-view-left');
   btnFit = document.getElementById('btn-fit');
+  
+  // Load cloud modal elements
+  loadCloudModal = document.getElementById('load-cloud-modal');
+  cloudUrlInput = document.getElementById('cloud-url');
+  btnLoadCloud = document.getElementById('btn-load-cloud');
+  confirmLoadCloudBtn = document.getElementById('confirm-load-cloud');
+  cancelLoadCloudBtn = document.getElementById('cancel-load-cloud');
+  closeLoadModalX = document.getElementById('close-load-modal-x');
 }
 
 /**
@@ -99,14 +112,15 @@ async function initPotreeViewer() {
 
       Potree.loadPointCloud(CONFIG.POINT_CLOUD_URL + 'cloud.js', 'lion', (e) => {
         if (e.pointcloud) {
-          const pointcloud = e.pointcloud;
-          const material = pointcloud.material;
+          currentPointCloud = e.pointcloud;
+          currentPointCloudUrl = CONFIG.POINT_CLOUD_URL;
+          const material = currentPointCloud.material;
 
           material.size = 1;
           material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
           material.shape = Potree.PointShape.CIRCLE;
 
-          viewer.scene.addPointCloud(pointcloud);
+          viewer.scene.addPointCloud(currentPointCloud);
           viewer.fitToScreen();
 
           console.log('Point cloud loaded successfully');
@@ -188,7 +202,8 @@ function setupAnnotationClickHandler() {
  */
 async function loadAnnotations() {
   try {
-    const savedAnnotations = await annotationAPI.getAnnotations();
+    // Filter by current point cloud if we have one
+    const savedAnnotations = await annotationAPI.getAnnotations(currentPointCloudUrl);
     for (const annotation of savedAnnotations) {
       addAnnotationToViewer(annotation);
     }
@@ -390,6 +405,7 @@ async function saveAnnotation() {
       showStatus('Note updated', 'success');
     } else {
       const newAnnotation = await annotationAPI.createAnnotation({
+        pointCloudId: currentPointCloudUrl,
         position: currentAnnotation.position,
         text: text,
         cameraPosition: currentAnnotation.cameraPosition,
@@ -536,6 +552,27 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Load Point Cloud Modal
+  if (btnLoadCloud) {
+    btnLoadCloud.addEventListener('click', openLoadCloudModal);
+  }
+  if (confirmLoadCloudBtn) {
+    confirmLoadCloudBtn.addEventListener('click', handleLoadCloud);
+  }
+  if (cancelLoadCloudBtn) {
+    cancelLoadCloudBtn.addEventListener('click', closeLoadCloudModal);
+  }
+  if (closeLoadModalX) {
+    closeLoadModalX.addEventListener('click', closeLoadCloudModal);
+  }
+  if (loadCloudModal) {
+    loadCloudModal.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-backdrop')) {
+        closeLoadCloudModal();
+      }
+    });
+  }
 }
 
 /**
@@ -564,6 +601,127 @@ function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
   });
+}
+
+/**
+ * Open load point cloud modal
+ */
+function openLoadCloudModal() {
+  if (loadCloudModal) {
+    cloudUrlInput.value = '';
+    loadCloudModal.classList.remove('hidden');
+    cloudUrlInput.focus();
+  }
+}
+
+/**
+ * Close load point cloud modal
+ */
+function closeLoadCloudModal() {
+  if (loadCloudModal) {
+    loadCloudModal.classList.add('hidden');
+  }
+}
+
+/**
+ * Handle load point cloud button click
+ */
+async function handleLoadCloud() {
+  const url = cloudUrlInput.value.trim();
+  
+  if (!url) {
+    showStatus('Please enter a point cloud URL', 'error');
+    return;
+  }
+
+  closeLoadCloudModal();
+  await loadNewPointCloud(url);
+}
+
+/**
+ * Load a new point cloud, replacing the existing one
+ */
+async function loadNewPointCloud(url) {
+  // Show loading
+  loadingEl.classList.remove('hidden');
+  loadingEl.style.opacity = '1';
+  loadingEl.innerHTML = `
+    <div class="loader-content">
+      <div class="spinner-modern"></div>
+      <p>Loading Point Cloud...</p>
+    </div>
+  `;
+
+  try {
+    // Clear existing point clouds from scene
+    // Potree stores point clouds in viewer.scene.pointclouds array
+    // We need to remove them from the Three.js scene
+    while (viewer.scene.pointclouds.length > 0) {
+      const pc = viewer.scene.pointclouds[0];
+      viewer.scene.scene.remove(pc);
+      viewer.scene.pointclouds.splice(0, 1);
+    }
+    currentPointCloud = null;
+
+    // Clear existing annotations from viewer
+    while (viewer.scene.annotations.children.length > 0) {
+      viewer.scene.annotations.remove(viewer.scene.annotations.children[0]);
+    }
+
+    // Clear local annotations cache
+    annotations.clear();
+    updateAnnotationList();
+
+    // Ensure URL ends with /
+    const cloudUrl = url.endsWith('/') ? url : url + '/';
+    
+    // Set current point cloud URL for annotation filtering
+    currentPointCloudUrl = cloudUrl;
+
+    // Load new point cloud
+    await new Promise((resolve, reject) => {
+      Potree.loadPointCloud(cloudUrl + 'cloud.js', 'pointcloud', (e) => {
+        if (e.pointcloud) {
+          currentPointCloud = e.pointcloud;
+          const material = currentPointCloud.material;
+
+          material.size = 1;
+          material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
+          material.shape = Potree.PointShape.CIRCLE;
+
+          viewer.scene.addPointCloud(currentPointCloud);
+          viewer.fitToScreen();
+
+          resolve();
+        } else {
+          reject(new Error('Failed to load point cloud from URL'));
+        }
+      });
+    });
+
+    // Load annotations for this point cloud
+    await loadAnnotations();
+
+    // Hide loading
+    loadingEl.style.opacity = '0';
+    setTimeout(() => {
+      loadingEl.classList.add('hidden');
+    }, 500);
+
+    showStatus('Point cloud loaded successfully!', 'success');
+
+  } catch (error) {
+    console.error('Error loading point cloud:', error);
+    const safeMessage = escapeHtml(error.message);
+    loadingEl.innerHTML = `
+      <div class="loader-content">
+        <p style="color: #ef4444;">Failed to load point cloud</p>
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">${safeMessage}</p>
+        <button onclick="location.reload()" class="btn btn-primary" style="margin-top: 16px;">Reload Page</button>
+      </div>
+    `;
+    showStatus('Failed to load point cloud: ' + error.message, 'error');
+  }
 }
 
 // Initialize

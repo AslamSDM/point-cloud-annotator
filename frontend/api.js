@@ -17,11 +17,16 @@ class AnnotationAPI {
 
   /**
    * Fetch all annotations from the backend
+   * @param {string} [pointCloudId] - Optional point cloud ID to filter by
    * @returns {Promise<Array>} Array of annotation objects
    */
-  async getAnnotations() {
+  async getAnnotations(pointCloudId = null) {
     try {
-      const response = await fetch(`${this.baseUrl}/annotations`);
+      let url = `${this.baseUrl}/annotations`;
+      if (pointCloudId) {
+        url += `?pointCloudId=${encodeURIComponent(pointCloudId)}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

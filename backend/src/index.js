@@ -32,11 +32,24 @@ const response = (statusCode, body) => ({
   body: JSON.stringify(body)
 });
 
-// Get all annotations
-async function getAnnotations() {
-  const command = new ScanCommand({
-    TableName: TABLE_NAME
-  });
+// Get all annotations (optionally filtered by pointCloudId)
+async function getAnnotations(pointCloudId = null) {
+  let command;
+  
+  if (pointCloudId) {
+    // Filter by pointCloudId using a scan with filter expression
+    command = new ScanCommand({
+      TableName: TABLE_NAME,
+      FilterExpression: 'pointCloudId = :pcId',
+      ExpressionAttributeValues: {
+        ':pcId': pointCloudId
+      }
+    });
+  } else {
+    command = new ScanCommand({
+      TableName: TABLE_NAME
+    });
+  }
 
   const result = await docClient.send(command);
   return response(200, result.Items || []);
@@ -67,6 +80,7 @@ async function createAnnotation(body) {
 
   const annotation = {
     id: randomUUID(),
+    pointCloudId: data.pointCloudId || null,
     position: {
       x: data.position.x,
       y: data.position.y,
@@ -149,7 +163,7 @@ async function deleteAnnotation(id) {
 export const handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
 
-  const { routeKey, pathParameters, body } = event;
+  const { routeKey, pathParameters, body, queryStringParameters } = event;
   
   // HTTP API v2 uses routeKey format: "GET /annotations"
   // Fall back to requestContext.http for direct invocations
@@ -161,7 +175,8 @@ export const handler = async (event) => {
   try {
     // Handle based on route - use routeKey for exact matching when available
     if (routeKey === 'GET /annotations' || (method === 'GET' && path === '/annotations')) {
-      return await getAnnotations();
+      const pointCloudId = queryStringParameters?.pointCloudId || null;
+      return await getAnnotations(pointCloudId);
     }
 
     if (routeKey === 'POST /annotations' || (method === 'POST' && path === '/annotations')) {
