@@ -28,12 +28,16 @@ app.use(express.json());
 // Database setup (local JSON file)
 const dbFile = join(__dirname, 'db.json');
 const adapter = new JSONFile(dbFile);
-const defaultData = { annotations: [] };
+const defaultData = { annotations: [], pointClouds: [] };
 const db = new Low(adapter, defaultData);
 
 // Initialize database
 await db.read();
 db.data ||= defaultData;
+// Ensure pointClouds array exists for existing databases
+if (!db.data.pointClouds) {
+  db.data.pointClouds = [];
+}
 await db.write();
 
 // GET all annotations (optionally filtered by pointCloudId)
@@ -158,6 +162,85 @@ app.delete('/annotations/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting annotation:', error);
     res.status(500).json({ error: 'Failed to delete annotation' });
+  }
+});
+
+// ========================================
+// Point Cloud Routes
+// ========================================
+
+// GET all point clouds
+app.get('/pointclouds', async (req, res) => {
+  try {
+    await db.read();
+    res.json(db.data.pointClouds);
+  } catch (error) {
+    console.error('Error fetching point clouds:', error);
+    res.status(500).json({ error: 'Failed to fetch point clouds' });
+  }
+});
+
+// POST create new point cloud
+app.post('/pointclouds', async (req, res) => {
+  try {
+    const { name, path } = req.body;
+
+    // Validate required fields
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    if (!path || typeof path !== 'string') {
+      return res.status(400).json({ error: 'Path is required' });
+    }
+
+    // Normalize path (ensure trailing slash)
+    let normalizedPath = path.trim();
+    if (!normalizedPath.endsWith('/')) {
+      normalizedPath += '/';
+    }
+
+    const pointCloud = {
+      id: randomUUID(),
+      name: name.trim(),
+      path: normalizedPath,
+      createdAt: new Date().toISOString()
+    };
+
+    await db.read();
+    db.data.pointClouds.push(pointCloud);
+    await db.write();
+
+    res.status(201).json(pointCloud);
+  } catch (error) {
+    console.error('Error creating point cloud:', error);
+    res.status(500).json({ error: 'Failed to create point cloud' });
+  }
+});
+
+// DELETE point cloud
+app.delete('/pointclouds/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate UUID format
+    if (!UUID_REGEX.test(id)) {
+      return res.status(400).json({ error: 'Invalid point cloud ID format' });
+    }
+
+    await db.read();
+    const index = db.data.pointClouds.findIndex(pc => pc.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: 'Point cloud not found' });
+    }
+
+    db.data.pointClouds.splice(index, 1);
+    await db.write();
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting point cloud:', error);
+    res.status(500).json({ error: 'Failed to delete point cloud' });
   }
 });
 

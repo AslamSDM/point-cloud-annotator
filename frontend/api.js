@@ -130,7 +130,79 @@ class AnnotationAPI {
       return false;
     }
   }
+
+  // ========================================
+  // Point Cloud Methods
+  // ========================================
+
+  /**
+   * Fetch all point clouds from the backend
+   * @returns {Promise<Array>} Array of point cloud objects
+   */
+  async getPointClouds() {
+    try {
+      const response = await fetch(`${this.baseUrl}/pointclouds`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching point clouds:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new point cloud entry
+   * @param {Object} pointCloud - The point cloud data
+   * @param {string} pointCloud.name - Display name
+   * @param {string} pointCloud.path - URL/path to the point cloud
+   * @returns {Promise<Object>} The created point cloud with ID
+   */
+  async createPointCloud(pointCloud) {
+    try {
+      const response = await fetch(`${this.baseUrl}/pointclouds`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(pointCloud)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating point cloud:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a point cloud entry
+   * @param {string} id - The point cloud ID
+   * @returns {Promise<void>}
+   */
+  async deletePointCloud(id) {
+    try {
+      const response = await fetch(`${this.baseUrl}/pointclouds/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok && response.status !== 204) {
+        const error = await response.json();
+        throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error deleting point cloud:', error);
+      throw error;
+    }
+  }
 }
 
 // Create global instance
 window.annotationAPI = new AnnotationAPI();
+

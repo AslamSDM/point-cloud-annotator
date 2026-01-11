@@ -27,6 +27,9 @@ let currentPointCloudUrl = null; // Track current point cloud for annotation fil
 
 // Load cloud modal elements
 let loadCloudModal, cloudUrlInput, btnLoadCloud, confirmLoadCloudBtn, cancelLoadCloudBtn, closeLoadModalX;
+let cloudSelect, tabGallery, tabUrl, galleryContent, urlContent;
+let isGalleryMode = true; // Track which tab is active
+let availablePointClouds = []; // Cached point clouds from backend + defaults
 
 /**
  * Initialize DOM references
@@ -61,6 +64,11 @@ function initDOMReferences() {
   confirmLoadCloudBtn = document.getElementById('confirm-load-cloud');
   cancelLoadCloudBtn = document.getElementById('cancel-load-cloud');
   closeLoadModalX = document.getElementById('close-load-modal-x');
+  cloudSelect = document.getElementById('cloud-select');
+  tabGallery = document.getElementById('tab-gallery');
+  tabUrl = document.getElementById('tab-url');
+  galleryContent = document.getElementById('gallery-content');
+  urlContent = document.getElementById('url-content');
 }
 
 /**
@@ -113,7 +121,7 @@ async function initPotreeViewer() {
       Potree.loadPointCloud(CONFIG.POINT_CLOUD_URL + 'cloud.js', 'lion', (e) => {
         if (e.pointcloud) {
           currentPointCloud = e.pointcloud;
-          currentPointCloudUrl = CONFIG.POINT_CLOUD_URL;
+          currentPointCloudUrl = normalizePointCloudUrl(CONFIG.POINT_CLOUD_URL);
           const material = currentPointCloud.material;
 
           material.size = 1;
@@ -573,6 +581,14 @@ function setupEventListeners() {
       }
     });
   }
+  
+  // Tab switching for load cloud modal
+  if (tabGallery) {
+    tabGallery.addEventListener('click', () => setLoadModalTab(true));
+  }
+  if (tabUrl) {
+    tabUrl.addEventListener('click', () => setLoadModalTab(false));
+  }
 }
 
 /**
@@ -604,13 +620,35 @@ function formatDate(dateString) {
 }
 
 /**
+ * Normalize point cloud URL for consistent storage and retrieval
+ * Ensures trailing slash and consistent format
+ */
+function normalizePointCloudUrl(url) {
+  if (!url) return null;
+  let normalized = url.trim();
+  // Ensure trailing slash
+  if (!normalized.endsWith('/')) {
+    normalized += '/';
+  }
+  return normalized;
+}
+
+/**
  * Open load point cloud modal
  */
-function openLoadCloudModal() {
+async function openLoadCloudModal() {
   if (loadCloudModal) {
-    cloudUrlInput.value = '';
+    // Show modal first with loading state
     loadCloudModal.classList.remove('hidden');
-    cloudUrlInput.focus();
+    
+    // Populate dropdown with available clouds (async)
+    await populateCloudDropdown();
+    
+    // Reset to gallery tab
+    setLoadModalTab(true);
+    
+    // Clear URL input
+    cloudUrlInput.value = '';
   }
 }
 
@@ -624,16 +662,125 @@ function closeLoadCloudModal() {
 }
 
 /**
+ * Set active tab in load modal
+ */
+function setLoadModalTab(isGallery) {
+  isGalleryMode = isGallery;
+  
+  if (isGallery) {
+    tabGallery.style.opacity = '1';
+    tabUrl.style.opacity = '0.6';
+    galleryContent.style.display = 'block';
+    urlContent.style.display = 'none';
+  } else {
+    tabGallery.style.opacity = '0.6';
+    tabUrl.style.opacity = '1';
+    galleryContent.style.display = 'none';
+    urlContent.style.display = 'block';
+  }
+}
+
+/**
+ * Populate the point cloud dropdown from backend + defaults
+ */
+async function populateCloudDropdown() {
+  if (!cloudSelect) return;
+  
+  cloudSelect.innerHTML = '<option value="">Loading...</option>';
+  
+  try {
+    // Load from backend
+    const backendClouds = await annotationAPI.getPointClouds();
+    
+    // Combine with CONFIG defaults (avoid duplicates by path)
+    const configClouds = CONFIG.AVAILABLE_POINT_CLOUDS || [];
+    const allPaths = new Set();
+    availablePointClouds = [];
+    
+    // Add backend clouds first (they take priority)
+    backendClouds.forEach(cloud => {
+      const normalizedPath = normalizePointCloudUrl(cloud.path);
+      if (!allPaths.has(normalizedPath)) {
+        allPaths.add(normalizedPath);
+        availablePointClouds.push({ ...cloud, path: normalizedPath });
+      }
+    });
+    
+    // Add config defaults
+    configClouds.forEach(cloud => {
+      const normalizedPath = normalizePointCloudUrl(cloud.path);
+      if (!allPaths.has(normalizedPath)) {
+        allPaths.add(normalizedPath);
+        availablePointClouds.push({ ...cloud, path: normalizedPath, isDefault: true });
+      }
+    });
+  } catch (error) {
+    console.error('Failed to load point clouds from backend:', error);
+    // Fall back to CONFIG only
+    availablePointClouds = (CONFIG.AVAILABLE_POINT_CLOUDS || []).map(cloud => ({
+      ...cloud,
+      path: normalizePointCloudUrl(cloud.path),
+      isDefault: true
+    }));
+  }
+  
+  // Populate dropdown
+  cloudSelect.innerHTML = '';
+  availablePointClouds.forEach((cloud) => {
+    const option = document.createElement('option');
+    option.value = cloud.path;
+    option.textContent = cloud.name + (cloud.isDefault ? ' (default)' : '');
+    // Mark current cloud as selected
+    if (normalizePointCloudUrl(cloud.path) === currentPointCloudUrl) {
+      option.selected = true;
+    }
+    cloudSelect.appendChild(option);
+  });
+}
+
+/**
+ * Convert GitHub URL to raw content URL
+ */
+function convertGitHubUrl(url) {
+  // Convert github.com/user/repo/blob/branch/path to raw.githubusercontent.com/user/repo/branch/path
+  const githubBlobRegex = /https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)/;
+  const match = url.match(githubBlobRegex);
+  
+  if (match) {
+    const [, user, repo, branch, path] = match;
+    return `https://raw.githubusercontent.com/${user}/${repo}/${branch}/${path}`;
+  }
+  
+  // Convert github.com/user/repo/tree/branch/path format
+  const githubTreeRegex = /https?:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)/;
+  const treeMatch = url.match(githubTreeRegex);
+  
+  if (treeMatch) {
+    const [, user, repo, branch, path] = treeMatch;
+    return `https://raw.githubusercontent.com/${user}/${repo}/${branch}/${path}`;
+  }
+  
+  return url; // Return as-is if not a GitHub URL
+}
+
+/**
  * Handle load point cloud button click
  */
 async function handleLoadCloud() {
-  const url = cloudUrlInput.value.trim();
+  let url;
   
-  if (!url) {
-    showStatus('Please enter a point cloud URL', 'error');
-    return;
+  if (isGalleryMode) {
+    url = cloudSelect.value;
+  } else {
+    url = cloudUrlInput.value.trim();
+    if (!url) {
+      showStatus('Please enter a point cloud URL', 'error');
+      return;
+    }
+    // Convert GitHub URLs
+    url = convertGitHubUrl(url);
   }
-
+  
   closeLoadCloudModal();
   await loadNewPointCloud(url);
 }
@@ -672,8 +819,8 @@ async function loadNewPointCloud(url) {
     annotations.clear();
     updateAnnotationList();
 
-    // Ensure URL ends with /
-    const cloudUrl = url.endsWith('/') ? url : url + '/';
+    // Normalize the URL for consistent storage/retrieval
+    const cloudUrl = normalizePointCloudUrl(url);
     
     // Set current point cloud URL for annotation filtering
     currentPointCloudUrl = cloudUrl;

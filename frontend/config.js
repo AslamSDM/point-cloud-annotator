@@ -16,8 +16,17 @@ const CONFIG = {
   // AWS API Gateway endpoint (update after deploying with SAM)
   AWS_API_ENDPOINT: 'https://6f5pi0039b.execute-api.us-east-1.amazonaws.com/prod',
 
-  // Point cloud URL - using the local lion_takanawa sample
+  // Default point cloud URL
   POINT_CLOUD_URL: 'libs/potree/pointclouds/lion_takanawa/',
+
+  // Available point clouds for gallery
+  AVAILABLE_POINT_CLOUDS: [
+    { name: 'Lion Takanawa', path: 'libs/potree/pointclouds/lion_takanawa/' },
+    { name: 'Vol Total', path: 'libs/potree/pointclouds/vol_total/' },
+    { name: 'Lion (LAS)', path: 'libs/potree/pointclouds/lion_takanawa_las/' },
+    { name: 'Lion (LAZ)', path: 'libs/potree/pointclouds/lion_takanawa_laz/' },
+    { name: 'Lion (Normals)', path: 'libs/potree/pointclouds/lion_takanawa_normals/' }
+  ],
 
   // Maximum annotation text length in bytes
   MAX_TEXT_BYTES: 256,

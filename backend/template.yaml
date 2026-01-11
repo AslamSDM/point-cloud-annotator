@@ -10,6 +10,7 @@ Globals:
     Environment:
       Variables:
         ANNOTATIONS_TABLE: !Ref AnnotationsTable
+        POINT_CLOUDS_TABLE: !Ref PointCloudsTable
 
 Resources:
   # DynamoDB Table for storing annotations
@@ -25,16 +26,31 @@ Resources:
         - AttributeName: id
           KeyType: HASH
 
-  # Lambda Function for handling annotations
+  # DynamoDB Table for storing point clouds
+  PointCloudsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-pointclouds
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  # Lambda Function for handling annotations and point clouds
   AnnotationsFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
       Handler: index.handler
-      Description: Handles CRUD operations for point cloud annotations
+      Description: Handles CRUD operations for point cloud annotations and point clouds
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AnnotationsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PointCloudsTable
       Events:
         GetAnnotations:
           Type: HttpApi
@@ -58,6 +74,24 @@ Resources:
           Type: HttpApi
           Properties:
             Path: /annotations/{id}
+            Method: DELETE
+            ApiId: !Ref HttpApi
+        GetPointClouds:
+          Type: HttpApi
+          Properties:
+            Path: /pointclouds
+            Method: GET
+            ApiId: !Ref HttpApi
+        CreatePointCloud:
+          Type: HttpApi
+          Properties:
+            Path: /pointclouds
+            Method: POST
+            ApiId: !Ref HttpApi
+        DeletePointCloud:
+          Type: HttpApi
+          Properties:
+            Path: /pointclouds/{id}
             Method: DELETE
             ApiId: !Ref HttpApi
 
@@ -86,3 +120,6 @@ Outputs:
   AnnotationsTableName:
     Description: DynamoDB Table Name
     Value: !Ref AnnotationsTable
+  PointCloudsTableName:
+    Description: Point Clouds DynamoDB Table Name
+    Value: !Ref PointCloudsTable

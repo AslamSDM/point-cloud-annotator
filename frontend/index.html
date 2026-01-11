@@ -186,7 +186,7 @@
   <!-- Load Point Cloud Modal -->
   <div id="load-cloud-modal" class="modal hidden">
     <div class="modal-backdrop"></div>
-    <div class="modal-content glass-panel">
+    <div class="modal-content glass-panel" style="max-width: 480px;">
       <div class="modal-header">
         <h3>Load Point Cloud</h3>
         <button id="close-load-modal-x" class="icon-btn-small">
@@ -197,21 +197,36 @@
         </button>
       </div>
       <div class="modal-body">
-        <label for="cloud-url" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">
-          Enter Potree point cloud URL (path to cloud.js):
-        </label>
-        <input
-          type="text"
-          id="cloud-url"
-          placeholder="e.g., libs/potree/pointclouds/lion_takanawa/"
-          style="width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
-        />
-        <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
-          <strong>Sample URLs:</strong>
-          <ul style="margin: 8px 0 0 16px; line-height: 1.8;">
-            <li><code>libs/potree/pointclouds/lion_takanawa/</code></li>
-            <li><code>libs/potree/pointclouds/vol_total/</code></li>
-          </ul>
+        <!-- Tab buttons -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <button id="tab-gallery" class="btn btn-secondary" style="flex: 1; padding: 8px;">📁 Gallery</button>
+          <button id="tab-url" class="btn btn-secondary" style="flex: 1; padding: 8px; opacity: 0.6;">🔗 Custom URL</button>
+        </div>
+
+        <!-- Gallery Tab -->
+        <div id="gallery-content">
+          <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">
+            Select from available point clouds:
+          </label>
+          <select id="cloud-select" style="width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; cursor: pointer;">
+            <!-- Populated by JavaScript -->
+          </select>
+        </div>
+
+        <!-- URL Tab (hidden by default) -->
+        <div id="url-content" style="display: none;">
+          <label for="cloud-url" style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">
+            Enter point cloud URL:
+          </label>
+          <input
+            type="text"
+            id="cloud-url"
+            placeholder="https://... or libs/potree/pointclouds/..."
+            style="width: 100%; padding: 12px 16px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px;"
+          />
+          <div style="margin-top: 12px; padding: 12px; background: rgba(255,200,50,0.1); border-radius: 8px; font-size: 12px; color: #ffc832;">
+            <strong>⚠️ Note:</strong> GitHub URLs will be auto-converted to raw format. External URLs require CORS headers.
+          </div>
         </div>
       </div>
       <div class="modal-footer">

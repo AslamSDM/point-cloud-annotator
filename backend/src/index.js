@@ -12,10 +12,14 @@ import { randomUUID } from 'crypto';
 if (!process.env.ANNOTATIONS_TABLE) {
   throw new Error('ANNOTATIONS_TABLE environment variable is required');
 }
+if (!process.env.POINT_CLOUDS_TABLE) {
+  throw new Error('POINT_CLOUDS_TABLE environment variable is required');
+}
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.ANNOTATIONS_TABLE;
+const POINT_CLOUDS_TABLE = process.env.POINT_CLOUDS_TABLE;
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -159,6 +163,78 @@ async function deleteAnnotation(id) {
   }
 }
 
+// ========================================
+// Point Cloud CRUD Operations
+// ========================================
+
+// Get all point clouds
+async function getPointClouds() {
+  const command = new ScanCommand({
+    TableName: POINT_CLOUDS_TABLE
+  });
+
+  const result = await docClient.send(command);
+  return response(200, result.Items || []);
+}
+
+// Create a new point cloud entry
+async function createPointCloud(body) {
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch (e) {
+    return response(400, { error: 'Invalid JSON body' });
+  }
+
+  // Validate required fields
+  if (!data.name || typeof data.name !== 'string') {
+    return response(400, { error: 'Name is required' });
+  }
+  if (!data.path || typeof data.path !== 'string') {
+    return response(400, { error: 'Path is required' });
+  }
+
+  // Normalize path (ensure trailing slash)
+  let path = data.path.trim();
+  if (!path.endsWith('/')) {
+    path += '/';
+  }
+
+  const pointCloud = {
+    id: randomUUID(),
+    name: data.name.trim(),
+    path: path,
+    createdAt: new Date().toISOString()
+  };
+
+  const command = new PutCommand({
+    TableName: POINT_CLOUDS_TABLE,
+    Item: pointCloud
+  });
+
+  await docClient.send(command);
+  return response(201, pointCloud);
+}
+
+// Delete a point cloud entry
+async function deletePointCloud(id) {
+  const command = new DeleteCommand({
+    TableName: POINT_CLOUDS_TABLE,
+    Key: { id },
+    ConditionExpression: 'attribute_exists(id)'
+  });
+
+  try {
+    await docClient.send(command);
+    return response(204, null);
+  } catch (error) {
+    if (error.name === 'ConditionalCheckFailedException') {
+      return response(404, { error: 'Point cloud not found' });
+    }
+    throw error;
+  }
+}
+
 // Main handler
 export const handler = async (event) => {
   console.log('Event:', JSON.stringify(event, null, 2));
@@ -203,6 +279,26 @@ export const handler = async (event) => {
         return response(400, { error: 'Invalid annotation ID format' });
       }
       return await deleteAnnotation(id);
+    }
+
+    // Point Cloud routes
+    if (routeKey === 'GET /pointclouds' || (method === 'GET' && path === '/pointclouds')) {
+      return await getPointClouds();
+    }
+
+    if (routeKey === 'POST /pointclouds' || (method === 'POST' && path === '/pointclouds')) {
+      return await createPointCloud(body);
+    }
+
+    if (routeKey?.startsWith('DELETE /pointclouds/') || (method === 'DELETE' && path?.startsWith('/pointclouds/'))) {
+      const id = pathParameters?.id;
+      if (!id) {
+        return response(400, { error: 'Point cloud ID required' });
+      }
+      if (!UUID_REGEX.test(id)) {
+        return response(400, { error: 'Invalid point cloud ID format' });
+      }
+      return await deletePointCloud(id);
     }
 
     console.log('No route matched for:', { routeKey, method, path });
