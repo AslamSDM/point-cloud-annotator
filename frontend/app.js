@@ -21,6 +21,7 @@ let btnGrid, btnAxes, btnViewTop, btnViewFront, btnViewLeft, btnFit;
 // Helpers
 let gridHelper = null;
 let axesHelper = null;
+let byteCountDebounceTimer = null;
 
 /**
  * Initialize DOM references
@@ -72,10 +73,11 @@ async function init() {
   } catch (error) {
     console.error('Initialization error:', error);
     showStatus('Failed to initialize: ' + error.message, 'error');
+    const safeMessage = escapeHtml(error.message);
     loadingEl.innerHTML = `
       <div class="loader-content">
         <p style="color: #ef4444;">Failed to load point cloud</p>
-        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">${error.message}</p>
+        <p style="color: #94a3b8; font-size: 12px; margin-top: 8px;">${safeMessage}</p>
       </div>
     `;
   }
@@ -126,14 +128,12 @@ async function initPotreeViewer() {
 function initHelpers() {
   if (!viewer) return;
 
-  const size = 20;
-  const divisions = 20;
-  gridHelper = new THREE.GridHelper(size, divisions, 0x444444, 0x222222);
+  gridHelper = new THREE.GridHelper(CONFIG.GRID_SIZE, CONFIG.GRID_DIVISIONS, 0x444444, 0x222222);
   gridHelper.rotation.x = Math.PI / 2;
   gridHelper.visible = false;
   viewer.scene.scene.add(gridHelper);
 
-  axesHelper = new THREE.AxesHelper(5);
+  axesHelper = new THREE.AxesHelper(CONFIG.AXES_SIZE);
   axesHelper.visible = false;
   viewer.scene.scene.add(axesHelper);
 }
@@ -374,11 +374,17 @@ async function saveAnnotation() {
     if (isEditMode && currentAnnotation.id) {
       const updated = await annotationAPI.updateAnnotation(currentAnnotation.id, { text });
       const existing = annotations.get(currentAnnotation.id);
-      existing.text = text;
-      existing.updatedAt = updated.updatedAt;
+      
+      // Create new object instead of mutating existing
+      const updatedAnnotation = {
+        ...existing,
+        text: text,
+        updatedAt: updated.updatedAt
+      };
+      annotations.set(currentAnnotation.id, updatedAnnotation);
 
-      if (existing.potreeAnnotation) {
-        existing.potreeAnnotation.title = text || 'Annotation';
+      if (updatedAnnotation.potreeAnnotation) {
+        updatedAnnotation.potreeAnnotation.title = text || 'Annotation';
       }
 
       showStatus('Note updated', 'success');
@@ -478,21 +484,21 @@ function setupEventListeners() {
 
   if (btnViewTop) {
     btnViewTop.addEventListener('click', () => {
-      viewer.scene.view.setView([0, 0, 20], [0, 0, 0]);
+      viewer.scene.view.setView([0, 0, CONFIG.CAMERA_DISTANCE], [0, 0, 0]);
       viewer.fitToScreen();
     });
   }
 
   if (btnViewFront) {
     btnViewFront.addEventListener('click', () => {
-      viewer.scene.view.setView([0, -20, 5], [0, 0, 5]);
+      viewer.scene.view.setView([0, -CONFIG.CAMERA_DISTANCE, 5], [0, 0, 5]);
       viewer.fitToScreen();
     });
   }
 
   if (btnViewLeft) {
     btnViewLeft.addEventListener('click', () => {
-      viewer.scene.view.setView([-20, 0, 5], [0, 0, 5]);
+      viewer.scene.view.setView([-CONFIG.CAMERA_DISTANCE, 0, 5], [0, 0, 5]);
       viewer.fitToScreen();
     });
   }
@@ -510,7 +516,11 @@ function setupEventListeners() {
   if (deleteBtn) deleteBtn.addEventListener('click', () => deleteAnnotation());
 
   if (annotationTextEl) {
-    annotationTextEl.addEventListener('input', updateByteCount);
+    annotationTextEl.addEventListener('input', () => {
+      // Debounce byte count updates for performance
+      clearTimeout(byteCountDebounceTimer);
+      byteCountDebounceTimer = setTimeout(updateByteCount, 100);
+    });
   }
 
   document.addEventListener('keydown', (e) => {

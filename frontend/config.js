@@ -26,7 +26,17 @@ const CONFIG = {
   ANNOTATION_COLOR: [0.29, 0.56, 0.85], // RGB normalized (4a90d9)
 
   // Auto-hide status messages after this many milliseconds
-  STATUS_MESSAGE_DURATION: 3000
+  STATUS_MESSAGE_DURATION: 3000,
+
+  // Grid helper configuration
+  GRID_SIZE: 20,
+  GRID_DIVISIONS: 20,
+
+  // Axes helper size
+  AXES_SIZE: 5,
+
+  // Camera distance for preset views
+  CAMERA_DISTANCE: 20
 };
 
 // Get the active API endpoint based on configuration
