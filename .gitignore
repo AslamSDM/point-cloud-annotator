@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Potree library (cloned locally, too large for git)
+frontend/libs/potree/
+
+# Build outputs
+.aws-sam/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# SAM
+samconfig.toml
+
+# Local database (keep structure, ignore data)
+# backend/db.json
+
+# Temporary files
+*.tmp
+*.temp

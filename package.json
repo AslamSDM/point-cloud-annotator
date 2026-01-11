@@ -1,0 +1,16 @@
+{
+  "name": "point-cloud-annotator",
+  "version": "1.0.0",
+  "description": "3D Point Cloud Annotator with Potree, AWS Lambda, and DynamoDB",
+  "scripts": {
+    "install:all": "pnpm install && pnpm --dir backend install && pnpm --dir frontend install",
+    "start": "concurrently \"pnpm run start:backend\" \"pnpm run start:frontend\"",
+    "start:backend": "pnpm --dir backend start",
+    "start:frontend": "pnpm --dir frontend start",
+    "dev": "concurrently \"pnpm run start:backend\" \"pnpm run start:frontend\"",
+    "deploy": "pnpm --dir backend run deploy"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
