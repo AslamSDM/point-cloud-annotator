@@ -1,0 +1,10 @@
+{
+  "name": "point-cloud-annotator-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for Point Cloud Annotator",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.400.0",
+    "@aws-sdk/lib-dynamodb": "^3.400.0"
+  }
+}

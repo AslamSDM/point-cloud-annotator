@@ -1,0 +1,88 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Point Cloud Annotator - Serverless Backend
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 256
+    Environment:
+      Variables:
+        ANNOTATIONS_TABLE: !Ref AnnotationsTable
+
+Resources:
+  # DynamoDB Table for storing annotations
+  AnnotationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-annotations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  # Lambda Function for handling annotations
+  AnnotationsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: index.handler
+      Description: Handles CRUD operations for point cloud annotations
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AnnotationsTable
+      Events:
+        GetAnnotations:
+          Type: HttpApi
+          Properties:
+            Path: /annotations
+            Method: GET
+            ApiId: !Ref HttpApi
+        CreateAnnotation:
+          Type: HttpApi
+          Properties:
+            Path: /annotations
+            Method: POST
+            ApiId: !Ref HttpApi
+        UpdateAnnotation:
+          Type: HttpApi
+          Properties:
+            Path: /annotations/{id}
+            Method: PUT
+            ApiId: !Ref HttpApi
+        DeleteAnnotation:
+          Type: HttpApi
+          Properties:
+            Path: /annotations/{id}
+            Method: DELETE
+            ApiId: !Ref HttpApi
+
+  # HTTP API Gateway
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  AnnotationsTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref AnnotationsTable
