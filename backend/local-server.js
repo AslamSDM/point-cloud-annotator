@@ -18,6 +18,9 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -91,6 +94,11 @@ app.put('/annotations/:id', async (req, res) => {
     const { id } = req.params;
     const { text } = req.body;
 
+    // Validate UUID format
+    if (!UUID_REGEX.test(id)) {
+      return res.status(400).json({ error: 'Invalid annotation ID format' });
+    }
+
     // Validate text length (max 256 bytes)
     if (text && Buffer.byteLength(text, 'utf8') > 256) {
       return res.status(400).json({ error: 'Text exceeds 256 bytes limit' });
@@ -121,6 +129,11 @@ app.put('/annotations/:id', async (req, res) => {
 app.delete('/annotations/:id', async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Validate UUID format
+    if (!UUID_REGEX.test(id)) {
+      return res.status(400).json({ error: 'Invalid annotation ID format' });
+    }
 
     await db.read();
     const index = db.data.annotations.findIndex(a => a.id === id);

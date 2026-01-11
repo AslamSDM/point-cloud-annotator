@@ -23,7 +23,9 @@ A web application for viewing 3D point clouds and creating persistent annotation
 
 > **Local Development**: Follow the [Getting Started](#getting-started) instructions below.
 
-> **Deployed Version**: _(Update this section after AWS deployment with your S3/CloudFront URL)_
+> **🚀 Live Demo**: [http://point-cloud-annotator-frontend-1768121629.s3-website-us-east-1.amazonaws.com](http://point-cloud-annotator-frontend-1768121629.s3-website-us-east-1.amazonaws.com)
+
+> **API Endpoint**: `https://6f5pi0039b.execute-api.us-east-1.amazonaws.com/prod`
 
 ---
 
@@ -364,12 +366,6 @@ Content-Type: application/json
 - [x] **Tier 2**: Local backend with JSON DB _(implemented for local dev)_
 - [x] **Tier 3**: AWS Lambda + DynamoDB _(implemented)_
 
-### Deployment Tier
-
-- [x] **Tier 1**: README with local instructions _(this document)_
-- [ ] **Tier 2**: Hosted on Vercel/Netlify _(N/A - chose Tier 3)_
-- [x] **Tier 3**: AWS S3 static hosting _(instructions provided above)_
-
 ### Infrastructure as Code
 
 - [x] AWS SAM template (`backend/template.yaml`)
@@ -396,46 +392,12 @@ This project was built with assistance from **Claude** (Anthropic), demonstratin
 
 5. **Documentation**: This README was drafted with AI assistance to ensure comprehensive coverage of setup steps and technical decisions.
 
-### Key Insight
 
-AI tools excel at:
-- Generating boilerplate (Lambda handlers, Express routes, CSS)
-- Explaining unfamiliar APIs (Potree internals)
-- Debugging error messages with context
-
-But still require human judgment for:
-- Architectural decisions (which tier to implement)
-- UX design (interaction patterns)
-- Testing edge cases in the browser
-
----
-
-## Troubleshooting
-
-### "Potree is not defined"
-Ensure Potree is cloned and built:
-```bash
-git clone --depth 1 https://github.com/potree/potree.git frontend/libs/potree
-cd frontend/libs/potree && pnpm install && npx rollup -c
-```
 
 ### "No intersection found" on double-click
 - Make sure you're clicking directly on the point cloud (the lion statue), not the background
 - Try zooming in for better precision
 
-### Backend not responding
-```bash
-# Check if server is running
-curl http://localhost:3001/health
-
-# Expected response
-{"status":"ok","timestamp":"..."}
-```
-
-### CORS errors with AWS deployment
-The SAM template includes CORS configuration. If issues persist, verify the API Gateway settings in AWS Console.
-
----
 
 ## License
 
